@@ -1,1 +1,1 @@
-# Degree-Credits-Requirement-Calculator-IITD-
+# IITD-Degree-Credits-Requirement-Calculator
