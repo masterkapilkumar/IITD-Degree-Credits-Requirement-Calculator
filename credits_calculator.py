@@ -29,6 +29,29 @@ class DegreeCalc:
                 data = response.text
             return data, response.status_code
     
+    def get_table_from_text(self, data):
+        soup = BeautifulSoup(data, 'html.parser')
+        tables = soup.findAll('table', attrs={'width':'900'})
+        semester_data = []
+        for semester in tables:
+            courses = semester.find_all('tr')
+            courses_data = []
+            for course in courses[1:]:
+                cols = course.find_all('td')
+                course_details = [col.text for col in cols]
+                courses_data.append(course_details)
+            courses_data = pd.DataFrame(courses_data, columns=["Serial No.", "Course Code", "Course Description", "Course Category", "Course Credits", "Grade"])
+            semester_data.append(courses_data)
+        sem_data_merged = pd.concat(semester_data)
+        sem_data_merged = sem_data_merged.sort_values(by=['Course Category'])
+        print(sem_data_merged)
+    
+    def get_grades_url(self, data):
+        soup = BeautifulSoup(data, 'html.parser')
+        for link in soup.findAll('a'):
+            if(link.text.strip()=="View Consolidated Grade Sheet"):
+                return self.url+"?"+link.get('href').split("?")[1]
+    
     def log_in(self):
         payload = {"username":self.username,"password":self.password, "submit-button":"Log+in", "page":"tryLogin"}
         
@@ -44,6 +67,13 @@ class DegreeCalc:
         response = self.log_in()
         if(response==False):
             raise Exception("Login failed with the following error: \n%s" %(response))
+        
+        self.grades_url = self.get_grades_url(response)
+        (grades, _) = self.get_response(self.grades_url, data='text')
+        
+        # self.test_func()
+        # grades = self.response
+        table = self.get_table_from_text(grades)
         
         
     def test_func(self):
