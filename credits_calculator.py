@@ -22,6 +22,7 @@ class DegreeCalc:
         self.headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'}
         self.departments = ["BB1", "BB5", "CS5"]
         self.categories = {"BS":"Basic Sciences", "EA":"Engineering Arts and Science", "PL":"Programme-linked", "HU":"Humanities and Social Sciences", "OC":"Open Category", "DC":"Departmental Core", "DE":"Departmental Electives", "PC":"Programme Core", "PE":"Programme Elective", "NR":"Non Graded"}
+        self.grade_points = {"A":10,"A-":9,"B":8,"B-":7,"C":6,"C-":5,"D":4}
 
     def get_response(self, url, headers=None, verify=False, type='GET', data="json"):
         if(not headers):
@@ -40,18 +41,54 @@ class DegreeCalc:
         row=1
         col=1
         df = pd.DataFrame(columns=data.columns)
-        df.to_excel(writer,'gradesheet',startcol=col,startrow=0, columns=['Course Code', 'Course Description', 'Course Category', 'Course Credits', 'Grade'], index=False)
+        columns = ['Course Code', 'Course Description', 'Course Category', 'Course Credits', 'Grade', 'Gradepoints']
+        df.to_excel(writer,'gradesheet',startcol=col,startrow=0, columns=columns, index=False)
+        
+        btech_creds = 0
+        btech_gpoints = 0
+        mtech_creds = 0
+        mtech_gpoints = 0
+        
         for category in self.categories:
             category_name = self.categories[category]
             df = pd.DataFrame(columns=[category_name])
             df.to_excel(writer,'gradesheet',startcol=0,startrow=row, columns=[category_name], index=False)
             row += 1
             df = data.loc[data['Course Category'] == category]
-            df.to_excel(writer,'gradesheet',startcol=col,startrow=row, columns=['Course Code', 'Course Description', 'Course Category', 'Course Credits', 'Grade'], index=False, header=False)
+            df.to_excel(writer,'gradesheet',startcol=col,startrow=row, columns=columns, index=False, header=False)
             row += df.shape[0]+2
+            
+            if(category in ['PC','PE']):
+                mtech_creds += df[(df["Grade"].isin(self.grade_points))]["Course Credits"].sum()
+                mtech_gpoints += df[(df["Grade"].isin(self.grade_points))]["Gradepoints"].sum()
+            elif(category in ["BS", "EA", "HU", "PL", "DC", "DE", "OC"]):
+                btech_creds += df[(df["Grade"].isin(self.grade_points))]["Course Credits"].sum()
+                btech_gpoints += df[(df["Grade"].isin(self.grade_points))]["Gradepoints"].sum()
+        
+        
+        cgpa = (btech_gpoints+mtech_gpoints)/(btech_creds+mtech_creds)
+        btech_cgpa = btech_gpoints/btech_creds
+        mtech_cgpa = mtech_gpoints/mtech_creds
+        pd.DataFrame(columns=["B.Tech. Credits", btech_creds]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False)
+        row+=1
+        pd.DataFrame(columns=["B.Tech. Gradepoints", btech_gpoints]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False)
+        row+=1
+        pd.DataFrame(columns=["B.Tech. CGPA", btech_cgpa]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False, float_format="%0.3f")
+        row+=2
+        
+        pd.DataFrame(columns=["M.Tech. Credits", mtech_creds]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False)
+        row+=1
+        pd.DataFrame(columns=["M.Tech. Gradepoints", mtech_gpoints]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False)
+        row+=1
+        pd.DataFrame(columns=["M.Tech. CGPA", mtech_cgpa]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False, float_format="%0.3f")
+        row+=2
+        pd.DataFrame(columns=["Overall CGPA", cgpa]).to_excel(writer,'gradesheet',startcol=4,startrow=row, index=False, float_format="%0.3f")
+        
         writer.save()
         
-        
+        print("B.Tech. CGPA: %0.3f" % btech_cgpa)
+        print("M.Tech. CGPA: %0.3f" % mtech_cgpa)
+        print("Overall CGPA: %0.3f" % cgpa)
     
     def get_table_from_html(self, data):
         soup = BeautifulSoup(data, 'html.parser')
@@ -68,6 +105,7 @@ class DegreeCalc:
             semester_data.append(courses_data)
         sem_data_merged = pd.concat(semester_data)
         sem_data_merged = sem_data_merged.sort_values(by=['Course Category'])
+        sem_data_merged['Course Credits'] = pd.to_numeric(sem_data_merged['Course Credits'])
         return sem_data_merged
     
     def get_grades_url(self, data):
@@ -98,8 +136,8 @@ class DegreeCalc:
         # self.test_func()
         # grades = self.response
         table = self.get_table_from_html(grades)
+        table['Gradepoints'] = table.apply(lambda row: (float(row['Course Credits']) * self.grade_points.get(row['Grade'], 0)), axis=1)
         self.generate_gradesheet(table)
-        
         
     def test_func(self):
         self.response = """
