@@ -13,8 +13,8 @@ Generates an excel sheet for the gradesheet by grouping the courses into differe
 	  -h, --help   show this help message and exit
     
 The JSON configuration file should have the following data:
- - **username**: Kerberos User id.
- - **password**: Kerberos password.
+ - **kerberos_username**: Kerberos User id.
+ - **kerberos_password**: Kerberos password.
 
 ### Dependencies
 - Python 3.x

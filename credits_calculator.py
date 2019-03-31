@@ -4,8 +4,6 @@ import traceback
 import argparse
 import requests
 import json
-import xlwt
-from xlwt import Workbook
 import sys
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
